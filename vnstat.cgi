@@ -24,7 +24,7 @@ my $cachetime = '15';
 # shown interfaces, remove unnecessary lines
 my @graphs = (
         { interface => 'eth0' },
-        { interface => 'eth1' },
+#        { interface => 'eth1' },
 );
 
 
