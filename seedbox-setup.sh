@@ -8,7 +8,7 @@ function check_install {
         while [ -n "$1" ]
         do
             DEBIAN_FRONTEND=noninteractive apt-get -q -y install "$1"
-            print_info "$1 installed for $executbale"
+            print_info "$1 installed for $executable"
             shift
         done
     else
@@ -62,11 +62,13 @@ function get_auth_info {
     while [ $PASSWORD1 != $PASSWORD2 ]
     do
         read -s -p "Please input Transmission password: " PASSWORD1
+        echo
         read -s -p "Please input Transmission password again: " PASSWORD2
+        echo
         if [ $PASSWORD1 != $PASSWORD2 ]
         then
-            echo "The two passwords you inputed not match!"
-        if
+            print_warn "The two passwords you inputed not match!"
+        fi
     done
     PASSWORD=$PASSWORD1
     read -p "Please input Transmission control port: " PORT
@@ -116,7 +118,7 @@ server {
         location / {
                 index  index.html index.htm;
         }
-
+}
 END
     invoke-rc.d nginx restart    
     
@@ -139,7 +141,7 @@ END
 ###############################################################################
 export PATH=/bin:/usr/bin:/sbin:/usr/sbin
 
-check_sanity
+#check_sanity
 
 # get some parameters
 USERNAME="Transmission"
@@ -158,6 +160,7 @@ all)
     get_auth_info
     install_transmission
     install_monitor
+    ;;
 *)
     echo 'Usage:' `basename $0` '[option]'
     echo 'Available option:'
