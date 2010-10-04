@@ -61,10 +61,8 @@ function get_auth_info {
     PASSWORD2="2"
     while [ $PASSWORD1 != $PASSWORD2 ]
     do
-        read -s -p "Please input Transmission password: " PASSWORD1
-        echo
-        read -s -p "Please input Transmission password again: " PASSWORD2
-        echo
+        read -s -p "Please input Transmission password: " PASSWORD1; echo
+        read -s -p "Please input Transmission password again: " PASSWORD2; echo
         if [ $PASSWORD1 != $PASSWORD2 ]
         then
             print_warn "The two passwords you inputed not match!"
@@ -90,20 +88,20 @@ function install_transmission {
     invoke-rc.d transmission-daemon start
 }
 
-function install_monitor {
+function install_nginx {
     check_remove /usr/sbin/apache2 'apache2*'
-    check_install monitor vnstat vnstati wget nginx libfcgi-perl
+    check_install monitor nginx libfcgi-perl wget
     
     # install nginx web server with perl fastcgi support
-    wget -O /usr/bin/fastcgi-wrapper.pl http://github.com/bull/seedbox-setup/raw/master//fastcgi-wrapper.pl
+    wget -q -O /usr/bin/fastcgi-wrapper.pl http://github.com/bull/seedbox-setup/raw/master//fastcgi-wrapper.pl
     chmod a+x /usr/bin/fastcgi-wrapper.pl
-    wget -O /etc/init.d/perl-fastcgi http://github.com/bull/seedbox-setup/raw/master//perl-fastcgi
+    wget -q -O /etc/init.d/perl-fastcgi http://github.com/bull/seedbox-setup/raw/master//perl-fastcgi
     chmod a+x /etc/init.d/perl-fastcgi
     mkdir -p /var/run/www
     chown www-data:www-data /var/run/www
     update-rc.d perl-fastcgi defaults
     invoke-rc.d perl-fastcgi start
-    wget -O /etc/nginx/fastcgi_perl http://github.com/bull/seedbox-setup/raw/master//fastcgi_perl
+    wget -q -O /etc/nginx/fastcgi_perl http://github.com/bull/seedbox-setup/raw/master//fastcgi_perl
     # TODO: authentication
     cat > /etc/nginx/sites-available/default <<END
 server {
@@ -120,18 +118,27 @@ server {
         }
 }
 END
-    invoke-rc.d nginx restart    
-    
-    # config vnstat things
-    INTERFACE=$(cat /etc/network/interfaces | grep -e venet[0-9] -o -m 1)
-    if [ $? -ne 0 ]
+    invoke-rc.d nginx restart  
+}
+
+function install_vnstat {
+    check_install vnstat vnstat vnstati wget
+
+    if [ -n "$(cat /etc/network/interfaces | grep venet0)" ]
+    then
+        INTERFACE="venet0"
+        print_info "Network interface is venet0"
+    elif [ -n "$(cat /etc/network/interfaces | grep eth0)" ]
     then
         INTERFACE="eth0"
+        print_info "Network interface is eth0"
+    else
+        die "Unknown network interface"
     fi
     sed -i "s/^Interface.*/Interface \"$INTERFACE\"/" /etc/vnstat.conf
     vnstat -u -i $INTERFACE
     invoke-rc.d vnstat restart
-    wget -O /var/www/nginx-default/vnstat.cgi http://github.com/bull/seedbox-setup/raw/master//vnstat.cgi
+    wget -q -O /var/www/nginx-default/vnstat.cgi http://github.com/bull/seedbox-setup/raw/master//vnstat.cgi
     sed -i "s/eth0/$INTERFACE/" /var/www/nginx-default/vnstat.cgi
     chmod a+x /var/www/nginx-default/vnstat.cgi
 }
@@ -141,7 +148,7 @@ END
 ###############################################################################
 export PATH=/bin:/usr/bin:/sbin:/usr/sbin
 
-#check_sanity
+check_sanity
 
 # get some parameters
 USERNAME="Transmission"
@@ -153,18 +160,22 @@ transmission)
     get_auth_info
     install_transmission
     ;;
-monitor)
-    install_monitor
+nginx)
+    install_nginx
+    ;;
+vnstat)
+    install_vnstat
     ;;
 all)
     get_auth_info
     install_transmission
-    install_monitor
+    install_nginx
+    install_vnstat
     ;;
 *)
     echo 'Usage:' `basename $0` '[option]'
     echo 'Available option:'
-    for option in transmission monitor all
+    for option in transmission nginx vnstat all
     do
         echo '  -' $option
     done
