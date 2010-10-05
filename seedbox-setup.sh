@@ -56,20 +56,20 @@ function die {
 }
 
 function get_auth_info {
-    read -p "Please input Transmission username: " USERNAME
+    read -p "Transmission username: " USERNAME
     PASSWORD1="1"
     PASSWORD2="2"
-    while [ $PASSWORD1 != $PASSWORD2 ]
+    while [ "$PASSWORD1" != "$PASSWORD2" ]
     do
-        read -s -p "Please input Transmission password: " PASSWORD1; echo
-        read -s -p "Please input Transmission password again: " PASSWORD2; echo
-        if [ $PASSWORD1 != $PASSWORD2 ]
+        read -s -p "Transmission password: " PASSWORD1; echo
+        read -s -p "Transmission password again: " PASSWORD2; echo
+        if [ "$PASSWORD1" != "$PASSWORD2" ]
         then
-            print_warn "The two passwords you inputed not match!"
+            print_warn "Two passwords not match"
         fi
     done
-    PASSWORD=$PASSWORD1
-    read -p "Please input Transmission control port: " PORT
+    PASSWORD="$PASSWORD1"
+    read -p "Transmission control port: " PORT
 }
 
 function install_transmission {
@@ -78,7 +78,7 @@ function install_transmission {
     invoke-rc.d transmission-daemon stop
     
     # TODO: check if the file exists
-    SETTING=/etc/transmission-daemon/setting.json
+    SETTING=/etc/transmission-daemon/settings.json
     sed -i "s/^.*rpc-authentication-required.*/\"rpc-authentication-required\": true,/" $SETTING
     sed -i "s/^.*rpc-whitelist-enabled.*/\"rpc-whitelist-enabled\": false,/" $SETTING
     sed -i "s/^.*rpc-username.*/\"rpc-username\": \"$USERNAME\",/" $SETTING
@@ -90,7 +90,7 @@ function install_transmission {
 
 function install_nginx {
     check_remove /usr/sbin/apache2 'apache2*'
-    check_install monitor nginx libfcgi-perl wget
+    check_install nginx nginx libfcgi-perl wget
     
     # install nginx web server with perl fastcgi support
     wget -q -O /usr/bin/fastcgi-wrapper.pl http://github.com/bull/seedbox-setup/raw/master//fastcgi-wrapper.pl
