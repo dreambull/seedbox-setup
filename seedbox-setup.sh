@@ -78,19 +78,27 @@ function install_transmission {
     invoke-rc.d transmission-daemon stop
     
     # TODO: check if the file exists
-    SETTING=/etc/transmission-daemon/settings.json
+    # Another possible location is /etc/transmission-daemon/settings.json, 
+    # sometimes /var/lib/.../settings.json is a symbolic link to it.
+    SETTING=/var/lib/transmission-daemon/info/settings.json
+    sed -i "s/^.*rpc-enabled.*/\"rpc-enabled\": true,/" $SETTING
     sed -i "s/^.*rpc-authentication-required.*/\"rpc-authentication-required\": true,/" $SETTING
     sed -i "s/^.*rpc-whitelist-enabled.*/\"rpc-whitelist-enabled\": false,/" $SETTING
     sed -i "s/^.*rpc-username.*/\"rpc-username\": \"$USERNAME\",/" $SETTING
     sed -i "s/^.*rpc-password.*/\"rpc-password\": \"$PASSWORD\",/" $SETTING
     sed -i "s/^.*rpc-port.*/\"rpc-port\": $PORT,/" $SETTING
+    # Since we are on a low end VPS, don't abuse the resources.
+    sed -i "s/^.*speed-limit-down.*/\"speed-limit-down\": 5000,/" $SETTING
+    sed -i "s/^.*speed-limit-down-enabled.*/\"speed-limit-down-enabled\": true,/" $SETTING
+    sed -i "s/^.*speed-limit-up.*/\"speed-limit-up\": 1000,/" $SETTING
+    sed -i "s/^.*speed-limit-up-enabled.*/\"speed-limit-up-enabled\": true,/" $SETTING
     
     invoke-rc.d transmission-daemon start
 }
 
 function install_nginx {
     check_remove /usr/sbin/apache2 'apache2*'
-    check_install nginx nginx libfcgi-perl wget
+    check_install nginx nginx libfcgi-perl
     
     # install nginx web server with perl fastcgi support
     wget -q -O /usr/bin/fastcgi-wrapper.pl http://github.com/bull/seedbox-setup/raw/master//fastcgi-wrapper.pl
@@ -122,7 +130,7 @@ END
 }
 
 function install_vnstat {
-    check_install vnstat vnstat vnstati wget
+    check_install vnstat vnstat vnstati
 
     if [ -n "$(cat /etc/network/interfaces | grep venet0)" ]
     then
