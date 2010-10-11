@@ -1,7 +1,16 @@
 #!/bin/bash
 PERL_SCRIPT=/usr/bin/fastcgi-wrapper.pl
 FASTCGI_USER=www-data
+FASTCGI_SOCKDIR=/var/run/www
 RETVAL=0
+
+# $FASTCGI_SOCKDIR sometimes gets removed after reboot.
+if [ ! -d $FASTCGI_SOCKDIR ]
+then
+    mkdir -p $FASTCGI_SOCKDIR
+    chown $FASTCGI_USER:$FASTCGI_USER $FASTCGI_SOCKDIR
+fi
+
 case "$1" in
     start)
       su - $FASTCGI_USER -c $PERL_SCRIPT
