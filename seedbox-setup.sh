@@ -98,18 +98,18 @@ function install_transmission {
 
 function install_nginx {
     check_remove /usr/sbin/apache2 'apache2*'
-    check_install nginx nginx libfcgi-perl
+    check_install nginx nginx libfcgi-perl psmisc
     
     # install nginx web server with perl fastcgi support
-    wget -q -O /usr/bin/fastcgi-wrapper.pl http://github.com/bull/seedbox-setup/raw/master//fastcgi-wrapper.pl
+    wget $WGET_PARAMS -O /usr/bin/fastcgi-wrapper.pl http://github.com/bull/seedbox-setup/raw/master//fastcgi-wrapper.pl
     chmod a+x /usr/bin/fastcgi-wrapper.pl
-    wget -q -O /etc/init.d/perl-fastcgi http://github.com/bull/seedbox-setup/raw/master//perl-fastcgi
+    wget $WGET_PARAMS -O /etc/init.d/perl-fastcgi http://github.com/bull/seedbox-setup/raw/master//perl-fastcgi
     chmod a+x /etc/init.d/perl-fastcgi
     mkdir -p /var/run/www
     chown www-data:www-data /var/run/www
     update-rc.d perl-fastcgi defaults
     invoke-rc.d perl-fastcgi start
-    wget -q -O /etc/nginx/fastcgi_perl http://github.com/bull/seedbox-setup/raw/master//fastcgi_perl
+    wget $WGET_PARAMS -O /etc/nginx/fastcgi_perl http://github.com/bull/seedbox-setup/raw/master//fastcgi_perl
     # TODO: authentication
     cat > /etc/nginx/sites-available/default <<END
 server {
@@ -146,7 +146,7 @@ function install_vnstat {
     sed -i "s/^Interface.*/Interface \"$INTERFACE\"/" /etc/vnstat.conf
     vnstat -u -i $INTERFACE
     invoke-rc.d vnstat restart
-    wget -q -O /var/www/nginx-default/vnstat.cgi http://github.com/bull/seedbox-setup/raw/master//vnstat.cgi
+    wget $WGET_PARAMS -O /var/www/nginx-default/vnstat.cgi http://github.com/bull/seedbox-setup/raw/master//vnstat.cgi
     sed -i "s/eth0/$INTERFACE/" /var/www/nginx-default/vnstat.cgi
     chmod a+x /var/www/nginx-default/vnstat.cgi
 }
@@ -162,6 +162,8 @@ check_sanity
 USERNAME="Transmission"
 PASSWORD="Transmission"
 PORT=9091
+
+WGET_PARAMS="-q --no-check-certificate"
 
 case $1 in
 transmission)
