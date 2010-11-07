@@ -1,0 +1,23 @@
+seedbox-setup -- a bash script for diy your low end seedbox
+
+ABOUT
+=====
+This is a simple bash script designed for Debian GNU/Linux and its derivatives, specifically Ubuntu. The purpose of this script is to ease the process of setting up a Bittorrent seedbox [1] on a Virtual Private Server (VPS). Of course, no one could prevent you from using it on a dedicated server or a PC. ;)
+
+OS SUPPORTED
+============
+This script has been successfully tested on the following distributions:
+
+- Ubuntu  9.10 x86_64 (w/o vnStat daemon)
+- Ubuntu 10.04 x86
+- Ubuntu 10.04 x86_64
+
+Theoretically, all distributions newer than above should be supported.
+
+CREDITS
+=======
+The idea of diy a seedbox on VPS is inspired by this website [2]. This script is adapted from the great lowendscript [3].
+
+[1] http://en.wikipedia.org/wiki/Seedbox
+[2] http://www.diyseedbox.com/
+[3] http://github.com/lowendbox/lowendscript

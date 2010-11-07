@@ -1,0 +1,7 @@
+BUGS
+====
+* "speed-limit-down-enabled" and "speed-limit-up-enabled" don't get changed. (weird)
+
+FEATURES
+========
+* Password-protected for vnstat.cgi script.
