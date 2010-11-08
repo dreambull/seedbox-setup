@@ -56,51 +56,72 @@ function die {
 }
 
 function get_auth_info {
-    read -p "Transmission username: " USERNAME
+    # TODO: check the validity of user input
+    echo "Username and password will be the same for Transmission remote control and FTP."
+    read -p "Username: " USERNAME
     PASSWORD1="1"
     PASSWORD2="2"
     while [ "$PASSWORD1" != "$PASSWORD2" ]
     do
-        read -s -p "Transmission password: " PASSWORD1; echo
-        read -s -p "Transmission password again: " PASSWORD2; echo
+        read -s -p "Password: " PASSWORD1; echo
+        read -s -p "Password again: " PASSWORD2; echo
         if [ "$PASSWORD1" != "$PASSWORD2" ]
         then
             print_warn "Two passwords not match"
         fi
     done
     PASSWORD="$PASSWORD1"
-    read -p "Transmission control port: " PORT
+    read -p "Transmission control port: " RPC_PORT
+    read -p "FTP port: " FTP_PORT
 }
 
+# Install and configure Transmission, the Bittorrent client. A user is created
+# and all downloads will be in this user's home directory.  
 function install_transmission {
-    check_install transmission transmission-daemon
+    check_install transmission transmission-daemon mkpasswd
     
     invoke-rc.d transmission-daemon stop
+    
+    useradd -d /home/$USERNAME -m -p `mkpasswd $PASSWORD` $USERNAME
+    
+    sed -i "s/^USER.*/USER=$USERNAME/" /etc/init.d/transmission-daemon
+    chown -R $USERNAME:$USERNAME /var/lib/transmission-daemon/*
+    chown $USERNAME:$USERNAME /etc/transmission-daemon/settings.json
     
     # TODO: check if the file exists
     # Another possible location is /etc/transmission-daemon/settings.json, 
     # sometimes /var/lib/.../settings.json is a symbolic link to it.
     SETTING=/var/lib/transmission-daemon/info/settings.json
-    sed -i "s/^.*rpc-enabled.*/\"rpc-enabled\": true,/" $SETTING
-    sed -i "s/^.*rpc-authentication-required.*/\"rpc-authentication-required\": true,/" $SETTING
-    sed -i "s/^.*rpc-whitelist-enabled.*/\"rpc-whitelist-enabled\": false,/" $SETTING
-    sed -i "s/^.*rpc-username.*/\"rpc-username\": \"$USERNAME\",/" $SETTING
-    sed -i "s/^.*rpc-password.*/\"rpc-password\": \"$PASSWORD\",/" $SETTING
-    sed -i "s/^.*rpc-port.*/\"rpc-port\": $PORT,/" $SETTING
-    # Since we are on a low end VPS, don't abuse the resources.
-    sed -i "s/^.*speed-limit-down.*/\"speed-limit-down\": 5000,/" $SETTING
-    sed -i "s/^.*speed-limit-down-enabled.*/\"speed-limit-down-enabled\": true,/" $SETTING
-    sed -i "s/^.*speed-limit-up.*/\"speed-limit-up\": 1000,/" $SETTING
-    sed -i "s/^.*speed-limit-up-enabled.*/\"speed-limit-up-enabled\": true,/" $SETTING
+    cp $SETTING $SETTING.orig
+    
+    cat > $SETTING <<END
+{
+    "download-dir": "\/home\/$USERNAME",
+    "port-forwarding-enabled": false,
+    "rpc-authentication-required": true,
+    "rpc-enabled": true,
+    "rpc-password": "$PASSWORD",
+    "rpc-port": $RPC_PORT,
+    "rpc-username": "$USERNAME",
+    "rpc-whitelist-enabled": false,
+    "speed-limit-down": 5000,
+    "speed-limit-down-enabled": true,
+    "speed-limit-up": 1000,
+    "speed-limit-up-enabled": true,
+    "upload-slots-per-torrent": 10
+}
+END
     
     invoke-rc.d transmission-daemon start
 }
 
+# Install and configure nginx, the web server, with Perl fastcgi support. 
 function install_nginx {
     check_remove /usr/sbin/apache2 'apache2*'
+    
+    # psmisc package is needed because perl-fastcgi script calls `killall`
     check_install nginx nginx libfcgi-perl psmisc
     
-    # install nginx web server with perl fastcgi support
     wget $WGET_PARAMS -O /usr/bin/fastcgi-wrapper.pl http://github.com/bull/seedbox-setup/raw/master//fastcgi-wrapper.pl
     chmod a+x /usr/bin/fastcgi-wrapper.pl
     wget $WGET_PARAMS -O /etc/init.d/perl-fastcgi http://github.com/bull/seedbox-setup/raw/master//perl-fastcgi
@@ -108,19 +129,16 @@ function install_nginx {
     mkdir -p /var/run/www
     chown www-data:www-data /var/run/www
     update-rc.d perl-fastcgi defaults
-    invoke-rc.d perl-fastcgi start
+    invoke-rc.d perl-fastcgi restart
     wget $WGET_PARAMS -O /etc/nginx/fastcgi_perl http://github.com/bull/seedbox-setup/raw/master//fastcgi_perl
     # TODO: authentication
     cat > /etc/nginx/sites-available/default <<END
 server {
         listen   80 default;
         server_name  localhost;
-
         root   /var/www/nginx-default;
         access_log  /var/log/nginx/localhost.access.log;
-
         include /etc/nginx/fastcgi_perl;
-
         location / {
                 index  index.html index.htm;
         }
@@ -129,6 +147,8 @@ END
     invoke-rc.d nginx restart  
 }
 
+# Install and configure vnStat, a traffic monitor tool. A graph representation
+# can be reached via Web at http://<VPS IP>/vnstat.cgi
 function install_vnstat {
     check_install vnstat vnstat vnstati
 
@@ -151,6 +171,24 @@ function install_vnstat {
     chmod a+x /var/www/nginx-default/vnstat.cgi
 }
 
+function install_vsftpd {
+    check_install vsftpd vsftpd ftp
+    
+    cp /etc/vsftpd.conf /etc/vsftpd.conf.orig
+    cat > /etc/vsftpd.conf <<END
+listen=YES
+listen_port=$FTP_PORT
+anonymous_enable=NO
+local_enable=YES
+write_enable=YES
+secure_chroot_dir=/var/run/vsftpd/empty
+pam_service_name=vsftpd
+rsa_cert_file=/etc/ssl/private/vsftpd.pem
+END
+
+    invoke-rc.d vsftpd restart
+}
+
 ###############################################################################
 # START OF PROGRAM
 ###############################################################################
@@ -159,11 +197,12 @@ export PATH=/bin:/usr/bin:/sbin:/usr/sbin
 check_sanity
 
 # get some parameters
-USERNAME="Transmission"
-PASSWORD="Transmission"
-PORT=9091
+USERNAME=
+PASSWORD=
+RPC_PORT=
+FTP_PORT=
 
-WGET_PARAMS="-q --no-check-certificate"
+WGET_PARAMS="--no-check-certificate"
 
 case $1 in
 transmission)
@@ -176,16 +215,21 @@ nginx)
 vnstat)
     install_vnstat
     ;;
+ftp)
+    get_auth_info
+    install_vsftpd
+    ;;
 all)
     get_auth_info
     install_transmission
     install_nginx
     install_vnstat
+    install_vsftpd
     ;;
 *)
     echo 'Usage:' `basename $0` '[option]'
     echo 'Available option:'
-    for option in transmission nginx vnstat all
+    for option in transmission nginx vnstat vsftpd all
     do
         echo '  -' $option
     done
