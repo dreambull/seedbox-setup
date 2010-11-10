@@ -57,7 +57,8 @@ function die {
 
 function get_auth_info {
     # TODO: check the validity of user input
-    echo "Username and password will be the same for Transmission remote control and FTP."
+    echo "Please input your username and password below."
+    echo "They will be used to login Transmission and/or FTP."
     read -p "Username: " USERNAME
     PASSWORD1="1"
     PASSWORD2="2"
@@ -71,14 +72,14 @@ function get_auth_info {
         fi
     done
     PASSWORD="$PASSWORD1"
-    read -p "Transmission control port: " RPC_PORT
-    read -p "FTP port: " FTP_PORT
 }
 
 # Install and configure Transmission, the Bittorrent client. A user is created
 # and all downloads will be in this user's home directory.  
 function install_transmission {
-    check_install transmission transmission-daemon mkpasswd
+    read -p "Transmission control port: " RPC_PORT
+    check_install transmission-daemon transmission-daemon
+    check_install mkpasswd mkpasswd
     
     invoke-rc.d transmission-daemon stop
     
@@ -86,6 +87,7 @@ function install_transmission {
     
     sed -i "s/^USER.*/USER=$USERNAME/" /etc/init.d/transmission-daemon
     chown -R $USERNAME:$USERNAME /var/lib/transmission-daemon/*
+    chown root:$USERNAME /etc/transmission-daemon/
     chown $USERNAME:$USERNAME /etc/transmission-daemon/settings.json
     
     # TODO: check if the file exists
@@ -119,8 +121,10 @@ END
 function install_nginx {
     check_remove /usr/sbin/apache2 'apache2*'
     
+    check_install nginx nginx
+    check_install libfcgi-perl
     # psmisc package is needed because perl-fastcgi script calls `killall`
-    check_install nginx nginx libfcgi-perl psmisc
+    check_install psmisc
     
     wget $WGET_PARAMS -O /usr/bin/fastcgi-wrapper.pl http://github.com/bull/seedbox-setup/raw/master//fastcgi-wrapper.pl
     chmod a+x /usr/bin/fastcgi-wrapper.pl
@@ -172,14 +176,17 @@ function install_vnstat {
 }
 
 function install_vsftpd {
-    check_install vsftpd vsftpd ftp
+    read -p "FTP port: " FTP_PORT
+    check_install vsftpd vsftpd
     
+    # For a full list of available options, see http://vsftpd.beasts.org/vsftpd_conf.html
     cp /etc/vsftpd.conf /etc/vsftpd.conf.orig
     cat > /etc/vsftpd.conf <<END
 listen=YES
 listen_port=$FTP_PORT
 anonymous_enable=NO
 local_enable=YES
+local_umask=022
 write_enable=YES
 secure_chroot_dir=/var/run/vsftpd/empty
 pam_service_name=vsftpd
@@ -215,7 +222,7 @@ nginx)
 vnstat)
     install_vnstat
     ;;
-ftp)
+vsftpd)
     get_auth_info
     install_vsftpd
     ;;
