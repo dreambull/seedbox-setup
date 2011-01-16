@@ -84,21 +84,22 @@ function install_transmission {
     invoke-rc.d transmission-daemon stop
     
     useradd -d /home/$USERNAME -m -p `mkpasswd $PASSWORD` $USERNAME
+    mkdir -p /home/$USERNAME/transmission
+    chown debian-transmission:debian-transmission /home/$USERNAME/transmission
     
-    sed -i "s/^USER.*/USER=$USERNAME/" /etc/init.d/transmission-daemon
-    chown -R $USERNAME:$USERNAME /var/lib/transmission-daemon/*
-    chown root:$USERNAME /etc/transmission-daemon/
-    chown $USERNAME:$USERNAME /etc/transmission-daemon/settings.json
+    #sed -i "s/^USER.*/USER=$USERNAME/" /etc/init.d/transmission-daemon
+    #chown -R $USERNAME:$USERNAME /var/lib/transmission-daemon/*
+    #chown root:$USERNAME /etc/transmission-daemon/
+    #chown $USERNAME:$USERNAME /etc/transmission-daemon/settings.json
     
     # TODO: check if the file exists
     # Another possible location is /etc/transmission-daemon/settings.json, 
     # sometimes /var/lib/.../settings.json is a symbolic link to it.
     SETTING=/var/lib/transmission-daemon/info/settings.json
     cp $SETTING $SETTING.orig
-    
-    cat > $SETTING <<END
+    cat > $SETTING <<END_TR_SETTING
 {
-    "download-dir": "\/home\/$USERNAME",
+    "download-dir": "\/home\/$USERNAME\/transmission",
     "port-forwarding-enabled": false,
     "rpc-authentication-required": true,
     "rpc-enabled": true,
@@ -110,9 +111,10 @@ function install_transmission {
     "speed-limit-down-enabled": true,
     "speed-limit-up": 1000,
     "speed-limit-up-enabled": true,
-    "upload-slots-per-torrent": 10
+    "upload-slots-per-torrent": 10,
+    "umask": 0,
 }
-END
+END_TR_SETTING
     
     invoke-rc.d transmission-daemon start
 }
@@ -125,8 +127,7 @@ function install_nginx {
     check_install libfcgi-perl libfcgi-perl
     # psmisc package is needed because perl-fastcgi script calls `killall`
     check_install psmisc psmisc
-    
-    cat > /usr/bin/fastcgi-wrapper.pl <<END
+    cat > /usr/bin/fastcgi-wrapper.pl <<END_FASTCGI_WRAPPER
 #!/usr/bin/perl
 
 use FCGI;
@@ -227,9 +228,10 @@ sub request_loop {
 
         }
 }
-END
+END_FASTCGI_WRAPPER
+
     chmod a+x /usr/bin/fastcgi-wrapper.pl
-    cat > /etc/init.d/perl-fastcgi <<END
+    cat > /etc/init.d/perl-fastcgi <<END_PERL_FASTCGI
 #!/bin/bash
 PERL_SCRIPT=/usr/bin/fastcgi-wrapper.pl
 FASTCGI_USER=www-data
@@ -263,13 +265,14 @@ case "$1" in
   ;;
 esac      
 exit $RETVAL
-END
+END_PERL_FASTCGI
+
     chmod a+x /etc/init.d/perl-fastcgi
     mkdir -p /var/run/www
     chown www-data:www-data /var/run/www
     update-rc.d perl-fastcgi defaults
     invoke-rc.d perl-fastcgi restart
-    cat > /etc/nginx/fastcgi_perl <<END
+    cat > /etc/nginx/fastcgi_perl <<END_FASTCGI_PERL
 location ~ \.(cgi|pl)$ {
     gzip off;
     include /etc/nginx/fastcgi_params;
@@ -277,9 +280,11 @@ location ~ \.(cgi|pl)$ {
     fastcgi_pass unix:/var/run/www/perl.sock;
     fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
 }
-END
+END_FASTCGI_PERL
+
     # TODO: authentication
-    cat > /etc/nginx/sites-available/default <<END
+    cp /etc/nginx/site-available/default /etc/nginx/sites-available/default.orig
+    cat > /etc/nginx/sites-available/default <<END_NGINX_SETTING
 server {
         listen   80 default;
         server_name  localhost;
@@ -290,7 +295,8 @@ server {
                 index  index.html index.htm;
         }
 }
-END
+END_NGINX_SETTING
+
     invoke-rc.d nginx restart  
 }
 
@@ -313,7 +319,7 @@ function install_vnstat {
     sed -i "s/^Interface.*/Interface \"$INTERFACE\"/" /etc/vnstat.conf
     vnstat -u -i $INTERFACE
     invoke-rc.d vnstat restart
-    cat > /var/www/nginx-default/vnstat.cgi <<END
+    cat > /var/www/nginx-default/vnstat.cgi <<END_VNSTAT_CGI
 #!/usr/bin/perl -w
 
 # vnstat.cgi -- example cgi for vnStat image output
@@ -505,7 +511,8 @@ sub main()
 }
 
 main();
-END
+END_VNSTAT_CGI
+
     sed -i "s/eth0/$INTERFACE/" /var/www/nginx-default/vnstat.cgi
     chmod a+x /var/www/nginx-default/vnstat.cgi
 }
@@ -516,17 +523,18 @@ function install_vsftpd {
     
     # For a full list of available options, see http://vsftpd.beasts.org/vsftpd_conf.html
     cp /etc/vsftpd.conf /etc/vsftpd.conf.orig
-    cat > /etc/vsftpd.conf <<END
+    cat > /etc/vsftpd.conf <<END_VSFTPD_CONF
 listen=YES
 listen_port=$FTP_PORT
 anonymous_enable=NO
 local_enable=YES
+chroot_local_user=YES
 local_umask=022
 write_enable=YES
 secure_chroot_dir=/var/run/vsftpd/empty
 pam_service_name=vsftpd
 rsa_cert_file=/etc/ssl/private/vsftpd.pem
-END
+END_VSFTPD_CONF
 
     invoke-rc.d vsftpd restart
 }
@@ -544,7 +552,7 @@ PASSWORD=
 RPC_PORT=
 FTP_PORT=
 
-WGET_PARAMS="--no-check-certificate"
+#WGET_PARAMS="--no-check-certificate"
 
 case $1 in
 transmission)
