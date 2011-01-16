@@ -31,7 +31,7 @@ function check_sanity {
     then
         die "Must be run by root user"
     fi
-    
+
     if [ ! -f /etc/debian_version ]
     then
         die "Distribution not supported"
@@ -75,25 +75,26 @@ function get_auth_info {
 }
 
 # Install and configure Transmission, the Bittorrent client. A user is created
-# and all downloads will be in this user's home directory.  
+# and all downloads will be in this user's home directory.
 function install_transmission {
     read -p "Transmission control port: " RPC_PORT
     check_install transmission-daemon transmission-daemon
     check_install mkpasswd mkpasswd
-    
+
     invoke-rc.d transmission-daemon stop
-    
+
     useradd -d /home/$USERNAME -m -p `mkpasswd $PASSWORD` $USERNAME
     mkdir -p /home/$USERNAME/transmission
     chown debian-transmission:debian-transmission /home/$USERNAME/transmission
-    
+    chmod 777 /home/$USERNAME/transmission
+
     #sed -i "s/^USER.*/USER=$USERNAME/" /etc/init.d/transmission-daemon
     #chown -R $USERNAME:$USERNAME /var/lib/transmission-daemon/*
     #chown root:$USERNAME /etc/transmission-daemon/
     #chown $USERNAME:$USERNAME /etc/transmission-daemon/settings.json
-    
+
     # TODO: check if the file exists
-    # Another possible location is /etc/transmission-daemon/settings.json, 
+    # Another possible location is /etc/transmission-daemon/settings.json,
     # sometimes /var/lib/.../settings.json is a symbolic link to it.
     SETTING=/var/lib/transmission-daemon/info/settings.json
     cp $SETTING $SETTING.orig
@@ -112,17 +113,17 @@ function install_transmission {
     "speed-limit-up": 1000,
     "speed-limit-up-enabled": true,
     "upload-slots-per-torrent": 10,
-    "umask": 0,
+    "umask": 0
 }
 END_TR_SETTING
-    
+
     invoke-rc.d transmission-daemon start
 }
 
-# Install and configure nginx, the web server, with Perl fastcgi support. 
+# Install and configure nginx, the web server, with Perl fastcgi support.
 function install_nginx {
     check_remove /usr/sbin/apache2 'apache2*'
-    
+
     check_install nginx nginx
     check_install libfcgi-perl libfcgi-perl
     # psmisc package is needed because perl-fastcgi script calls `killall`
@@ -142,74 +143,74 @@ require 'syscall.ph';
 
 #this keeps the program alive or something after exec'ing perl scripts
 END() { } BEGIN() { }
-*CORE::GLOBAL::exit = sub { die "fakeexit\nrc=".shift()."\n"; }; 
-eval q{exit}; 
-if ($@) { 
-	exit unless $@ =~ /^fakeexit/; 
+*CORE::GLOBAL::exit = sub { die "fakeexit\nrc=".shift()."\n"; };
+eval q{exit};
+if (\$@) {
+	exit unless \$@ =~ /^fakeexit/;
 };
 
 &main;
 
 sub daemonize() {
-    chdir '/'                 or die "Can't chdir to /: $!";
-    defined(my $pid = fork)   or die "Can't fork: $!";
-    exit if $pid;
-    setsid                    or die "Can't start a new session: $!";
+    chdir '/'                 or die "Can't chdir to /: \$!";
+    defined(my \$pid = fork)   or die "Can't fork: \$!";
+    exit if \$pid;
+    setsid                    or die "Can't start a new session: \$!";
     umask 0;
 }
 
 sub main {
-        #$socket = FCGI::OpenSocket( "127.0.0.1:8999", 10 ); #use IP sockets
-        $socket = FCGI::OpenSocket( "/var/run/www/perl.sock", 10 ); #use UNIX sockets - user running this script must have w access to the 'www' folder!!
-        $request = FCGI::Request( \*STDIN, \*STDOUT, \*STDERR, \%req_params, $socket );
-        if ($request) { request_loop()};
-            FCGI::CloseSocket( $socket );
+        #\$socket = FCGI::OpenSocket( "127.0.0.1:8999", 10 ); #use IP sockets
+        \$socket = FCGI::OpenSocket( "/var/run/www/perl.sock", 10 ); #use UNIX sockets - user running this script must have w access to the 'www' folder!!
+        \$request = FCGI::Request( \*STDIN, \*STDOUT, \*STDERR, \%req_params, \$socket );
+        if (\$request) { request_loop()};
+            FCGI::CloseSocket( \$socket );
 }
 
 sub request_loop {
-        while( $request->Accept() >= 0 ) {
-            
+        while( \$request->Accept() >= 0 ) {
+
            #processing any STDIN input from WebServer (for CGI-POST actions)
-           $stdin_passthrough ='';
-           $req_len = 0 + $req_params{'CONTENT_LENGTH'};
-           if (($req_params{'REQUEST_METHOD'} eq 'POST') && ($req_len != 0) ){ 
-                my $bytes_read = 0;
-                while ($bytes_read < $req_len) {
-                        my $data = '';
-                        my $bytes = read(STDIN, $data, ($req_len - $bytes_read));
-                        last if ($bytes == 0 || !defined($bytes));
-                        $stdin_passthrough .= $data;
-                        $bytes_read += $bytes;
+           \$stdin_passthrough ='';
+           \$req_len = 0 + \$req_params{'CONTENT_LENGTH'};
+           if ((\$req_params{'REQUEST_METHOD'} eq 'POST') && (\$req_len != 0) ){
+                my \$bytes_read = 0;
+                while (\$bytes_read < \$req_len) {
+                        my \$data = '';
+                        my \$bytes = read(STDIN, \$data, (\$req_len - \$bytes_read));
+                        last if (\$bytes == 0 || !defined(\$bytes));
+                        \$stdin_passthrough .= \$data;
+                        \$bytes_read += \$bytes;
                 }
             }
 
             #running the cgi app
-            if ( (-x $req_params{SCRIPT_FILENAME}) &&  #can I execute this?
-                 (-s $req_params{SCRIPT_FILENAME}) &&  #Is this file empty?
-                 (-r $req_params{SCRIPT_FILENAME})     #can I read this file?
+            if ( (-x \$req_params{SCRIPT_FILENAME}) &&  #can I execute this?
+                 (-s \$req_params{SCRIPT_FILENAME}) &&  #Is this file empty?
+                 (-r \$req_params{SCRIPT_FILENAME})     #can I read this file?
             ){
 		pipe(CHILD_RD, PARENT_WR);
-		my $pid = open(KID_TO_READ, "-|");
-		unless(defined($pid)) {
+		my \$pid = open(KID_TO_READ, "-|");
+		unless(defined(\$pid)) {
 			print("Content-type: text/plain\r\n\r\n");
-                        print "Error: CGI app returned no output - Executing $req_params{SCRIPT_FILENAME} failed !\n";
+                        print "Error: CGI app returned no output - Executing \$req_params{SCRIPT_FILENAME} failed !\n";
 			next;
 		}
-		if ($pid > 0) {
+		if (\$pid > 0) {
 			close(CHILD_RD);
-			print PARENT_WR $stdin_passthrough;
+			print PARENT_WR \$stdin_passthrough;
 			close(PARENT_WR);
 
-			while(my $s = <KID_TO_READ>) { print $s; }
+			while(my \$s = <KID_TO_READ>) { print \$s; }
 			close KID_TO_READ;
-			waitpid($pid, 0);
+			waitpid(\$pid, 0);
 		} else {
-	                foreach $key ( keys %req_params){
-        	           $ENV{$key} = $req_params{$key};
+	                foreach \$key ( keys %req_params){
+        	           \$ENV{\$key} = \$req_params{\$key};
                 	}
         	        # cd to the script's local directory
-	                if ($req_params{SCRIPT_FILENAME} =~ /^(.*)\/[^\/]+$/) {
-                        	chdir $1;
+	                if (\$req_params{SCRIPT_FILENAME} =~ /^(.*)\/[^\/]+$/) {
+                        	chdir \$1;
                 	}
 
 			close(PARENT_WR);
@@ -217,13 +218,13 @@ sub request_loop {
 			#fcntl(CHILD_RD, F_DUPFD, 0);
 			syscall(&SYS_dup2, fileno(CHILD_RD), 0);
 			#open(STDIN, "<&CHILD_RD");
-			exec($req_params{SCRIPT_FILENAME});
+			exec(\$req_params{SCRIPT_FILENAME});
 			die("exec failed");
 		}
-            } 
+            }
             else {
                 print("Content-type: text/plain\r\n\r\n");
-                print "Error: No such CGI app - $req_params{SCRIPT_FILENAME} may not exist or is not executable by this process.\n";
+                print "Error: No such CGI app - \$req_params{SCRIPT_FILENAME} may not exist or is not executable by this process.\n";
             }
 
         }
@@ -238,33 +239,33 @@ FASTCGI_USER=www-data
 FASTCGI_SOCKDIR=/var/run/www
 RETVAL=0
 
-# $FASTCGI_SOCKDIR sometimes gets removed after reboot.
-if [ ! -d $FASTCGI_SOCKDIR ]
+# \$FASTCGI_SOCKDIR sometimes gets removed after reboot.
+if [ ! -d \$FASTCGI_SOCKDIR ]
 then
-    mkdir -p $FASTCGI_SOCKDIR
-    chown $FASTCGI_USER:$FASTCGI_USER $FASTCGI_SOCKDIR
+    mkdir -p \$FASTCGI_SOCKDIR
+    chown \$FASTCGI_USER:\$FASTCGI_USER \$FASTCGI_SOCKDIR
 fi
 
-case "$1" in
+case "\$1" in
     start)
-      su - $FASTCGI_USER -c $PERL_SCRIPT
-      RETVAL=$?
+      su - \$FASTCGI_USER -c \$PERL_SCRIPT
+      RETVAL=\$?
   ;;
     stop)
       killall -9 fastcgi-wrapper.pl
-      RETVAL=$?
+      RETVAL=\$?
   ;;
     restart)
       killall -9 fastcgi-wrapper.pl
-      su - $FASTCGI_USER -c $PERL_SCRIPT
-      RETVAL=$?
+      su - \$FASTCGI_USER -c \$PERL_SCRIPT
+      RETVAL=\$?
   ;;
     *)
       echo "Usage: perl-fastcgi {start|stop|restart}"
       exit 1
   ;;
-esac      
-exit $RETVAL
+esac
+exit \$RETVAL
 END_PERL_FASTCGI
 
     chmod a+x /etc/init.d/perl-fastcgi
@@ -278,12 +279,12 @@ location ~ \.(cgi|pl)$ {
     include /etc/nginx/fastcgi_params;
     fastcgi_index index.pl;
     fastcgi_pass unix:/var/run/www/perl.sock;
-    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
 }
 END_FASTCGI_PERL
 
     # TODO: authentication
-    cp /etc/nginx/site-available/default /etc/nginx/sites-available/default.orig
+    cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.orig
     cat > /etc/nginx/sites-available/default <<END_NGINX_SETTING
 server {
         listen   80 default;
@@ -297,7 +298,7 @@ server {
 }
 END_NGINX_SETTING
 
-    invoke-rc.d nginx restart  
+    invoke-rc.d nginx restart
 }
 
 # Install and configure vnStat, a traffic monitor tool. A graph representation
@@ -331,17 +332,17 @@ function install_vnstat {
 # released under the GNU General Public License
 
 
-my $host = 'Some Server';
-my $scriptname = 'vnstat.cgi';
+my \$host = 'Some Server';
+my \$scriptname = 'vnstat.cgi';
 
 # temporary directory where to store the images
-my $tmp_dir = '/tmp/vnstatcgi';
+my \$tmp_dir = '/tmp/vnstatcgi';
 
 # location of vnstati
-my $vnstati_cmd = '/usr/bin/vnstati';
+my \$vnstati_cmd = '/usr/bin/vnstati';
 
 # cache time in minutes, set 0 to disable
-my $cachetime = '15';
+my \$cachetime = '15';
 
 # shown interfaces, remove unnecessary lines
 my @graphs = (
@@ -353,12 +354,12 @@ my @graphs = (
 ################
 
 
-my $VERSION = "1.2";
+my \$VERSION = "1.2";
 
-sub graph($$$)
+sub graph(\$\$\$)
 {
-	my ($interface, $file, $param) = @_;
-	my $result = `"$vnstati_cmd" -i "$interface" -c $cachetime $param -o "$file"`;
+	my (\$interface, \$file, \$param) = @_;
+	my \$result = \`"\$vnstati_cmd" -i "\$interface" -c \$cachetime \$param -o "\$file"\`;
 }
 
 
@@ -371,8 +372,8 @@ sub print_html()
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<meta name="Generator" content="vnstat.cgi $VERSION">
-<title>Traffic Statistics for $host</title>
+<meta name="Generator" content="vnstat.cgi \$VERSION">
+<title>Traffic Statistics for \$host</title>
 <style type="text/css">
 <!--
 a { text-decoration: underline; }
@@ -386,8 +387,8 @@ small { font-size: 8px; color: #cbcbcb; }
 <body bgcolor="#ffffff">
 HEADER
 
-	for my $n (0..$#graphs) {
-		print "<p><a href=\"$scriptname?${n}-f\"><img src=\"$scriptname?${n}-hs\" border=\"0\" alt=\"$graphs[$n]{interface} summary\"></a></p>\n";
+	for my \$n (0..\$#graphs) {
+		print "<p><a href=\"\$scriptname?\${n}-f\"><img src=\"\$scriptname?\${n}-hs\" border=\"0\" alt=\"\$graphs[\$n]{interface} summary\"></a></p>\n";
 	}
 
 	print <<FOOTER;
@@ -397,9 +398,9 @@ HEADER
 FOOTER
 }
 
-sub print_fullhtml($)
+sub print_fullhtml(\$)
 {
-	my ($interface) = @_;
+	my (\$interface) = @_;
 
 	print "Content-Type: text/html\n\n";
 
@@ -408,8 +409,8 @@ sub print_fullhtml($)
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<meta name="Generator" content="vnstat.cgi $VERSION">
-<title>Traffic Statistics for $host</title>
+<meta name="Generator" content="vnstat.cgi \$VERSION">
+<title>Traffic Statistics for \$host</title>
 <style type="text/css">
 <!--
 a { text-decoration: underline; }
@@ -424,14 +425,14 @@ small { font-size: 8px; color: #cbcbcb; }
 HEADER
 
 	print "<table border=\"0\"><tr><td>\n";
-	print "<img src=\"$scriptname?${interface}-s\" border=\"0\" alt=\"${interface} summary\">";
+	print "<img src=\"\$scriptname?\${interface}-s\" border=\"0\" alt=\"\${interface} summary\">";
 	print "</td><td>\n";
-	print "<img src=\"$scriptname?${interface}-h\" border=\"0\" alt=\"${interface} hourly\">";
+	print "<img src=\"\$scriptname?\${interface}-h\" border=\"0\" alt=\"\${interface} hourly\">";
 	print "</td></tr><tr><td valign=\"top\">\n";
-	print "<img src=\"$scriptname?${interface}-d\" border=\"0\" alt=\"${interface} daily\">";
+	print "<img src=\"\$scriptname?\${interface}-d\" border=\"0\" alt=\"\${interface} daily\">";
 	print "</td><td valign=\"top\">\n";
-	print "<img src=\"$scriptname?${interface}-t\" border=\"0\" alt=\"${interface} top 10\"><br>\n";
-	print "<img src=\"$scriptname?${interface}-m\" border=\"0\" alt=\"${interface} monthly\" vspace=\"4\">";
+	print "<img src=\"\$scriptname?\${interface}-t\" border=\"0\" alt=\"\${interface} top 10\"><br>\n";
+	print "<img src=\"\$scriptname?\${interface}-m\" border=\"0\" alt=\"\${interface} monthly\" vspace=\"4\">";
 	print "</td></tr>\n</table>\n";
 
 	print <<FOOTER;
@@ -441,68 +442,68 @@ HEADER
 FOOTER
 }
 
-sub send_image($)
+sub send_image(\$)
 {
-	my ($file)= @_;
+	my (\$file)= @_;
 
-	-r $file or do {
-		print "Content-type: text/plain\n\nERROR: can't find $file\n";
+	-r \$file or do {
+		print "Content-type: text/plain\n\nERROR: can't find \$file\n";
 		exit 1;
 	};
 
 	print "Content-type: image/png\n";
-	print "Content-length: ".((stat($file))[7])."\n";
+	print "Content-length: ".((stat(\$file))[7])."\n";
 	print "\n";
-	open(IMG, $file) or die;
-	my $data;
-	print $data while read(IMG, $data, 16384)>0;
+	open(IMG, \$file) or die;
+	my \$data;
+	print \$data while read(IMG, \$data, 16384)>0;
 }
 
 sub main()
 {
-	mkdir $tmp_dir, 0777 unless -d $tmp_dir;
+	mkdir \$tmp_dir, 0777 unless -d \$tmp_dir;
 
-	my $img = $ENV{QUERY_STRING};
-	if(defined $img and $img =~ /\S/) {
-		if($img =~ /^(\d+)-s$/) {
-			my $file = "$tmp_dir/vnstat_$1.png";
-			graph($graphs[$1]{interface}, $file, "-s");
-			send_image($file);
+	my \$img = \$ENV{QUERY_STRING};
+	if(defined \$img and \$img =~ /\S/) {
+		if(\$img =~ /^(\d+)-s$/) {
+			my \$file = "\$tmp_dir/vnstat_\$1.png";
+			graph(\$graphs[\$1]{interface}, \$file, "-s");
+			send_image(\$file);
 		}
-		elsif($img =~ /^(\d+)-hs$/) {
-			my $file = "$tmp_dir/vnstat_$1_hs.png";
-			graph($graphs[$1]{interface}, $file, "-hs");
-			send_image($file);
+		elsif(\$img =~ /^(\d+)-hs$/) {
+			my \$file = "\$tmp_dir/vnstat_\$1_hs.png";
+			graph(\$graphs[\$1]{interface}, \$file, "-hs");
+			send_image(\$file);
 		}
-		elsif($img =~ /^(\d+)-d$/) {
-			my $file = "$tmp_dir/vnstat_$1_d.png";
-			graph($graphs[$1]{interface}, $file, "-d");
-			send_image($file);
+		elsif(\$img =~ /^(\d+)-d$/) {
+			my \$file = "\$tmp_dir/vnstat_\$1_d.png";
+			graph(\$graphs[\$1]{interface}, \$file, "-d");
+			send_image(\$file);
 		}
-		elsif($img =~ /^(\d+)-m$/) {
-			my $file = "$tmp_dir/vnstat_$1_m.png";
-			graph($graphs[$1]{interface}, $file, "-m");
-			send_image($file);
+		elsif(\$img =~ /^(\d+)-m$/) {
+			my \$file = "\$tmp_dir/vnstat_\$1_m.png";
+			graph(\$graphs[\$1]{interface}, \$file, "-m");
+			send_image(\$file);
 		}
-		elsif($img =~ /^(\d+)-t$/) {
-			my $file = "$tmp_dir/vnstat_$1_t.png";
-			graph($graphs[$1]{interface}, $file, "-t");
-			send_image($file);
+		elsif(\$img =~ /^(\d+)-t$/) {
+			my \$file = "\$tmp_dir/vnstat_\$1_t.png";
+			graph(\$graphs[\$1]{interface}, \$file, "-t");
+			send_image(\$file);
 		}
-		elsif($img =~ /^(\d+)-h$/) {
-			my $file = "$tmp_dir/vnstat_$1_h.png";
-			graph($graphs[$1]{interface}, $file, "-h");
-			send_image($file);
+		elsif(\$img =~ /^(\d+)-h$/) {
+			my \$file = "\$tmp_dir/vnstat_\$1_h.png";
+			graph(\$graphs[\$1]{interface}, \$file, "-h");
+			send_image(\$file);
 		}
-		elsif($img =~ /^(\d+)-f$/) {
-			print_fullhtml($1);
+		elsif(\$img =~ /^(\d+)-f$/) {
+			print_fullhtml(\$1);
 		}
 		else {
 			die "ERROR: invalid argument\n";
 		}
 	}
 	else {
-		if ($#graphs == 0) {
+		if (\$#graphs == 0) {
 			print_fullhtml(0);
 		} else {
 			print_html();
@@ -520,7 +521,7 @@ END_VNSTAT_CGI
 function install_vsftpd {
     read -p "FTP port: " FTP_PORT
     check_install vsftpd vsftpd
-    
+
     # For a full list of available options, see http://vsftpd.beasts.org/vsftpd_conf.html
     cp /etc/vsftpd.conf /etc/vsftpd.conf.orig
     cat > /etc/vsftpd.conf <<END_VSFTPD_CONF
