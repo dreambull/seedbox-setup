@@ -1,7 +1,0 @@
-location ~ \.(cgi|pl)$ {
-    gzip off;
-    include /etc/nginx/fastcgi_params;
-    fastcgi_index index.pl;
-    fastcgi_pass unix:/var/run/www/perl.sock;
-    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-}
