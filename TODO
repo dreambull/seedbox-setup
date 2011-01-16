@@ -1,7 +1,12 @@
 BUGS
 ====
-* "speed-limit-down-enabled" and "speed-limit-up-enabled" don't get changed. (weird)
+* Check the validity of user's input.
 
 FEATURES
 ========
 * Password-protected for vnstat.cgi script.
+* Install newer Transmission in PPA. (only available for Ubuntu)
+  - apt-get install python-software-properties
+  - add-apt-repository ppa:transmissionbt/ppa
+  - apt-get update
+* rTorrent support with Web UI.

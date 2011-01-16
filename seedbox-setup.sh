@@ -122,9 +122,9 @@ function install_nginx {
     check_remove /usr/sbin/apache2 'apache2*'
     
     check_install nginx nginx
-    check_install libfcgi-perl
+    check_install libfcgi-perl libfcgi-perl
     # psmisc package is needed because perl-fastcgi script calls `killall`
-    check_install psmisc
+    check_install psmisc psmisc
     
     wget $WGET_PARAMS -O /usr/bin/fastcgi-wrapper.pl http://github.com/bull/seedbox-setup/raw/master//fastcgi-wrapper.pl
     chmod a+x /usr/bin/fastcgi-wrapper.pl
