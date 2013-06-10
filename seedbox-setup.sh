@@ -80,6 +80,8 @@ function install_transmission {
     read -p "Transmission control port: " RPC_PORT
     check_install transmission-daemon transmission-daemon
     check_install mkpasswd mkpasswd
+    # Ubuntu 12.04 moved mkpasswd into whois package
+    check_install whois whois
 
     invoke-rc.d transmission-daemon stop
 
